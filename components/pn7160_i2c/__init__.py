@@ -1,59 +1,124 @@
-"""PN7160/PN7161 over I2C for ESPHome.
-
-CRITICAL: PN7160 requires I2C frequency >= 100kHz.
-The default ESPHome I2C frequency of 50kHz will cause IRQ timeouts.
-See https://github.com/esphome/issues/issues/6339
-"""
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome import pins, automation
 from esphome.components import i2c
-from esphome.const import CONF_ID
-import logging
+from esphome.const import (
+    CONF_ID,
+    CONF_ON_TAG,
+    CONF_ON_TAG_REMOVED,
+    CONF_TRIGGER_ID,
+    CONF_UPDATE_INTERVAL,
+)
+from .. import pn7160  # Import base pn7160 component
 
-from ..pn7160 import PN7160, PN7160_SCHEMA, setup_pn7160_core_
+# Import constants from parent pn7160 component
+CONF_DWL_REQ_PIN = "dwl_req_pin"
+CONF_IRQ_PIN = "irq_pin"
+CONF_VEN_PIN = "ven_pin"
+CONF_WKUP_REQ_PIN = "wkup_req_pin"
+CONF_EMULATION_MESSAGE = "emulation_message"
+CONF_TAG_TTL = "tag_ttl"
+CONF_ON_EMULATED_TAG_SCAN = "on_emulated_tag_scan"
 
-_LOGGER = logging.getLogger(__name__)
+# Health check specific options
+CONF_HEALTH_CHECK_ENABLED = "health_check_enabled"
+CONF_HEALTH_CHECK_INTERVAL = "health_check_interval"
+CONF_MAX_FAILED_CHECKS = "max_failed_checks"
+CONF_AUTO_RESET_ON_FAILURE = "auto_reset_on_failure"
 
-CODEOWNERS = ["@your-github-handle"]
 DEPENDENCIES = ["i2c"]
 AUTO_LOAD = ["pn7160"]
 
 pn7160_i2c_ns = cg.esphome_ns.namespace("pn7160_i2c")
-PN7160I2C = pn7160_i2c_ns.class_("PN7160I2C", PN7160, i2c.I2CDevice)
-
-# FIX for bug #6339: PN7160 requires minimum 100kHz I2C frequency
-MIN_I2C_FREQUENCY = 100000
-
-
-def validate_i2c_frequency(config):
-    """Warn if I2C frequency is below the required 100kHz minimum."""
-    # Get the I2C bus this device is attached to
-    i2c_id = config.get("i2c_id")
-    # Note: We can't easily access the parent I2C bus config here to check frequency,
-    # but we can at least document the requirement prominently in logs.
-    # The user must ensure their i2c: config has frequency: 100kHz or higher.
-    _LOGGER.warning(
-        "IMPORTANT: PN7160 requires I2C frequency >= 100kHz. "
-        "If you experience IRQ timeouts, check your i2c: frequency setting. "
-        "See https://github.com/esphome/issues/issues/6339"
-    )
-    return config
-
+PN7160I2C = pn7160_i2c_ns.class_("PN7160I2C", pn7160.PN7160, i2c.I2CDevice)
 
 CONFIG_SCHEMA = (
-    PN7160_SCHEMA.extend(
+    cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(PN7160I2C),
+            # Required pins
+            cv.Required(CONF_IRQ_PIN): pins.gpio_input_pin_schema,
+            cv.Required(CONF_VEN_PIN): pins.gpio_output_pin_schema,
+            # Optional pins (from official API)
+            cv.Optional(CONF_DWL_REQ_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_WKUP_REQ_PIN): pins.gpio_output_pin_schema,
+            # Tag emulation options
+            cv.Optional(CONF_EMULATION_MESSAGE): cv.string,
+            cv.Optional(CONF_TAG_TTL, default="250ms"): cv.positive_time_period_milliseconds,
+            # Health check options (custom enhancement)
+            cv.Optional(CONF_HEALTH_CHECK_ENABLED, default=True): cv.boolean,
+            cv.Optional(CONF_HEALTH_CHECK_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_MAX_FAILED_CHECKS, default=3): cv.int_range(min=1, max=10),
+            cv.Optional(CONF_AUTO_RESET_ON_FAILURE, default=True): cv.boolean,
+            # Standard options
+            cv.Optional(CONF_UPDATE_INTERVAL, default="1s"): cv.update_interval,
+            cv.Optional(CONF_ON_TAG): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        pn7160.PN7160OnTagTrigger
+                    ),
+                }
+            ),
+            cv.Optional(CONF_ON_TAG_REMOVED): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        pn7160.PN7160OnTagRemovedTrigger
+                    ),
+                }
+            ),
+            cv.Optional(CONF_ON_EMULATED_TAG_SCAN): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        pn7160.PN7160OnEmulatedTagScanTrigger
+                    ),
+                }
+            ),
         }
     )
+    .extend(cv.polling_component_schema("1s"))
     .extend(i2c.i2c_device_schema(0x28))
 )
 
 
 async def to_code(config):
-    validate_i2c_frequency(config)
-    
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
-    await setup_pn7160_core_(var, config)
+    await pn7160.setup_pn7160(var, config)
+
+    # Set pins
+    irq_pin = await cg.gpio_pin_expression(config[CONF_IRQ_PIN])
+    cg.add(var.set_irq_pin(irq_pin))
+    
+    ven_pin = await cg.gpio_pin_expression(config[CONF_VEN_PIN])
+    cg.add(var.set_ven_pin(ven_pin))
+    
+    # Optional pins
+    if CONF_DWL_REQ_PIN in config:
+        dwl_req_pin = await cg.gpio_pin_expression(config[CONF_DWL_REQ_PIN])
+        cg.add(var.set_dwl_req_pin(dwl_req_pin))
+    
+    if CONF_WKUP_REQ_PIN in config:
+        wkup_req_pin = await cg.gpio_pin_expression(config[CONF_WKUP_REQ_PIN])
+        cg.add(var.set_wkup_req_pin(wkup_req_pin))
+    
+    # Tag TTL
+    if CONF_TAG_TTL in config:
+        cg.add(var.set_tag_ttl(config[CONF_TAG_TTL]))
+    
+    # Emulation message
+    if CONF_EMULATION_MESSAGE in config:
+        cg.add(var.set_tag_emulation_message(config[CONF_EMULATION_MESSAGE]))
+    
+    # Health check settings (custom enhancement)
+    if CONF_HEALTH_CHECK_ENABLED in config:
+        cg.add(var.set_health_check_enabled(config[CONF_HEALTH_CHECK_ENABLED]))
+    
+    if CONF_HEALTH_CHECK_INTERVAL in config:
+        cg.add(var.set_health_check_interval(config[CONF_HEALTH_CHECK_INTERVAL]))
+    
+    if CONF_MAX_FAILED_CHECKS in config:
+        cg.add(var.set_max_failed_checks(config[CONF_MAX_FAILED_CHECKS]))
+    
+    if CONF_AUTO_RESET_ON_FAILURE in config:
+        cg.add(var.set_auto_reset_on_failure(config[CONF_AUTO_RESET_ON_FAILURE]))
