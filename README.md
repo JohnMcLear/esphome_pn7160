@@ -29,7 +29,7 @@ An enhanced external ESPHome component for the PN7160/PN7161 NFC controller. Dro
 external_components:
   - source:
       type: git
-      url: https://github.com/YOUR_USERNAME/esphome-pn7160
+      url: https://github.com/JohnMcLear/esphome_pn7160
     components: [pn7160, pn7160_spi, pn7160_i2c]
     refresh: 1d
 ```
