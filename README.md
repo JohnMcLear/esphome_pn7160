@@ -140,7 +140,7 @@ binary_sensor:
 
 ## Setting Up Tags
 
-Same as PN532 — configure without binary sensors first, scan a tag, copy the UID from the logs:
+Same as PN7160 — configure without binary sensors first, scan a tag, copy the UID from the logs:
 
 ```
 Found new tag '04-A3-B2-C1-D4-E5-F6'
@@ -152,7 +152,7 @@ Then add a `binary_sensor:` entry with that UID.
 
 ## Health Check
 
-Unlike PN532 (which uses `GetFirmwareVersion`), PN7160 health check uses:
+Unlike PN7160 (which uses `GetFirmwareVersion`), PN7160 health check uses:
 - **`CORE_RESET_CMD`** to verify NCI communication
 - Reads **`CORE_RESET_NTF`** to confirm IC responds
 - On repeated failures, toggles **VEN pin** (hard reset) to recover
@@ -171,11 +171,11 @@ This resolves IRQ blocking and communication freeze bugs.
 
 ---
 
-## Differences from PN532
+## Differences from PN7160
 
-| Feature | PN532 | PN7160 |
+| Feature | PN7160 | PN7160 |
 |---|---|---|
-| Protocol | Raw PN532 commands | NCI 2.0 (standard) |
+| Protocol | Raw PN7160 commands | NCI 2.0 (standard) |
 | Required pins | RSTPD_N (optional, SPI only) | IRQ + VEN (both required) |
 | I2C address | 0x24 (fixed) | 0x28-0x2B (configurable via HIF) |
 | I2C frequency | 50kHz OK | **100kHz minimum** |
