@@ -945,8 +945,12 @@ void PN7160::process_rf_intf_activated_oid_(nfc::NciMessage &rx) {  // an endpoi
     this->read_mode();
   }
 
-  this->stop_discovery_();
-  this->nci_fsm_set_state_(NCIState::EP_DEACTIVATING);
+  if (this->stop_discovery_() != nfc::STATUS_OK) {
+    ESP_LOGW(TAG, "Failed to deactivate -- forcing NFCC reset");
+    this->nci_fsm_set_state_(NCIState::NFCC_RESET);
+  } else {
+    this->nci_fsm_set_state_(NCIState::EP_DEACTIVATING);
+  }
 }
 
 void PN7160::process_rf_discover_oid_(nfc::NciMessage &rx) {
@@ -1203,13 +1207,23 @@ void PN7160::perform_health_check_() {
   this->last_health_check_ = now;
 
   // Detect stuck init states -- classic symptom of I2C bus scan corruption
-  bool in_transitional_state = (this->nci_state_ == NCIState::NFCC_RESET ||
-                                this->nci_state_ == NCIState::NFCC_INIT ||
-                                this->nci_state_ == NCIState::NFCC_CONFIG ||
-                                this->nci_state_ == NCIState::NFCC_SET_DISCOVER_MAP ||
-                                this->nci_state_ == NCIState::NFCC_SET_LISTEN_MODE_ROUTING);
+  // States that should never last more than a few seconds
+  bool in_stuck_state = (this->nci_state_ == NCIState::NFCC_RESET ||
+                         this->nci_state_ == NCIState::NFCC_INIT ||
+                         this->nci_state_ == NCIState::NFCC_CONFIG ||
+                         this->nci_state_ == NCIState::NFCC_SET_DISCOVER_MAP ||
+                         this->nci_state_ == NCIState::NFCC_SET_LISTEN_MODE_ROUTING ||
+                         this->nci_state_ == NCIState::EP_DEACTIVATING ||
+                         this->nci_state_ == NCIState::EP_SELECTING);
 
-  if (in_transitional_state) {
+  // EP_DEACTIVATING/EP_SELECTING should complete in < 500ms normally
+  uint32_t state_age = now - this->last_nci_state_change_;
+  bool stuck_too_long = (this->nci_state_ == NCIState::EP_DEACTIVATING ||
+                         this->nci_state_ == NCIState::EP_SELECTING)
+                            ? state_age > 2000
+                            : state_age > this->health_check_interval_;
+
+  if (in_stuck_state && stuck_too_long) {
     this->health_fail_count_++;
     ESP_LOGW(TAG, "Health check: NFCC stuck in init state %u for %ums (%u/%u)",
              (uint8_t) this->nci_state_,
