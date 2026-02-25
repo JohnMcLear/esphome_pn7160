@@ -27,12 +27,6 @@ CONF_EMULATION_MESSAGE = "emulation_message"
 CONF_TAG_TTL = "tag_ttl"
 CONF_ON_EMULATED_TAG_SCAN = "on_emulated_tag_scan"
 
-# Health check specific options
-CONF_HEALTH_CHECK_ENABLED = "health_check_enabled"
-CONF_HEALTH_CHECK_INTERVAL = "health_check_interval"
-CONF_MAX_FAILED_CHECKS = "max_failed_checks"
-CONF_AUTO_RESET_ON_FAILURE = "auto_reset_on_failure"
-
 DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["pn7160"]
 
@@ -53,9 +47,7 @@ CONFIG_SCHEMA = (
             # Tag emulation options
             cv.Optional(CONF_EMULATION_MESSAGE): cv.string,
             cv.Optional(CONF_TAG_TTL, default="250ms"): cv.positive_time_period_milliseconds,
-            # Health check options (custom enhancement)
-            cv.Optional(CONF_HEALTH_CHECK_ENABLED, default=True): cv.boolean,
-            cv.Optional(CONF_HEALTH_CHECK_INTERVAL, default="60s"): cv.positive_time_period_milliseconds,
+ cv.positive_time_period_milliseconds,
             cv.Optional(CONF_MAX_FAILED_CHECKS, default=3): cv.int_range(min=1, max=10),
             cv.Optional(CONF_AUTO_RESET_ON_FAILURE, default=True): cv.boolean,
             # Standard options
@@ -119,16 +111,4 @@ async def to_code(config):
     # Emulation message
     if CONF_EMULATION_MESSAGE in config:
         cg.add(var.set_tag_emulation_message(config[CONF_EMULATION_MESSAGE]))
-    
-    # Health check settings (custom enhancement)
-    if CONF_HEALTH_CHECK_ENABLED in config:
-        cg.add(var.set_health_check_enabled(config[CONF_HEALTH_CHECK_ENABLED]))
-    
-    if CONF_HEALTH_CHECK_INTERVAL in config:
-        cg.add(var.set_health_check_interval(config[CONF_HEALTH_CHECK_INTERVAL]))
-    
-    if CONF_MAX_FAILED_CHECKS in config:
-        cg.add(var.set_max_failed_checks(config[CONF_MAX_FAILED_CHECKS]))
-    
-    if CONF_AUTO_RESET_ON_FAILURE in config:
-        cg.add(var.set_auto_reset_on_failure(config[CONF_AUTO_RESET_ON_FAILURE]))
+  
