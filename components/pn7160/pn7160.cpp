@@ -38,6 +38,7 @@ void PN7160::dump_config() {
 }
 
 void PN7160::loop() {
+  this->perform_health_check_();  // ← add this line
   this->nci_fsm_transition_();
   this->purge_old_tags_();
 }
@@ -1186,6 +1187,53 @@ uint8_t PN7160::wait_for_irq_(uint16_t timeout, bool pin_state) {
   }
   ESP_LOGW(TAG, "Timed out waiting for IRQ state");
   return nfc::STATUS_FAILED;
+}
+
+void PN7160::reset_via_ven_() {
+  ESP_LOGW(TAG, "Performing hardware reset via VEN pin");
+  this->ven_pin_->digital_write(false);
+  delay(NFCC_DEFAULT_TIMEOUT);
+  this->ven_pin_->digital_write(true);
+  delay(NFCC_INIT_TIMEOUT);
+  this->nci_fsm_set_state_(NCIState::NFCC_RESET);
+}
+
+void PN7160::perform_health_check_() {
+  if (!this->health_check_enabled_)
+    return;
+
+  uint32_t now = millis();
+  if (now - this->last_health_check_ < this->health_check_interval_)
+    return;
+  this->last_health_check_ = now;
+
+  // Detect stuck init states -- classic symptom of I2C bus scan corruption
+  bool in_transitional_state = (this->nci_state_ == NCIState::NFCC_RESET ||
+                                this->nci_state_ == NCIState::NFCC_INIT ||
+                                this->nci_state_ == NCIState::NFCC_CONFIG ||
+                                this->nci_state_ == NCIState::NFCC_SET_DISCOVER_MAP ||
+                                this->nci_state_ == NCIState::NFCC_SET_LISTEN_MODE_ROUTING);
+
+  if (in_transitional_state) {
+    this->health_fail_count_++;
+    ESP_LOGW(TAG, "Health check: NFCC stuck in init state %u for %ums (%u/%u)",
+             (uint8_t) this->nci_state_,
+             now - this->last_nci_state_change_,
+             this->health_fail_count_,
+             this->max_failed_checks_);
+    if (this->health_fail_count_ >= this->max_failed_checks_) {
+      this->health_fail_count_ = 0;
+      if (this->auto_reset_on_failure_) {
+        ESP_LOGW(TAG, "Health check: triggering hardware VEN reset to recover");
+        this->reset_via_ven_();
+      }
+    }
+    return;
+  }
+
+  // Healthy operational state -- reset fail counter
+  this->health_fail_count_ = 0;
+  ESP_LOGV(TAG, "Health check: NFCC OK (state: %u)", (uint8_t) this->nci_state_);
 }
 
 }  // namespace pn7160
