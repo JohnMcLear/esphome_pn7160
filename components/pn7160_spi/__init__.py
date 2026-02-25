@@ -1,31 +1,10 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import pins, automation
 from esphome.components import spi
-from esphome.const import (
-    CONF_ID,
-    CONF_ON_TAG,
-    CONF_ON_TAG_REMOVED,
-    CONF_TRIGGER_ID,
-    CONF_UPDATE_INTERVAL,
-)
-from .. import pn7160  # Import base pn7160 component
+from esphome.const import CONF_ID, CONF_CS_PIN
 
-PN7160OnEmulatedTagScanTrigger = cg.esphome_ns.namespace("pn7160").class_(
-    "PN7160OnEmulatedTagScanTrigger",
-    automation.Trigger.template(),  # no parameters
-)
-
-
-# Import constants
-CONF_CS_PIN = "cs_pin"
-CONF_DWL_REQ_PIN = "dwl_req_pin"
-CONF_IRQ_PIN = "irq_pin"
-CONF_VEN_PIN = "ven_pin"
-CONF_WKUP_REQ_PIN = "wkup_req_pin"
-CONF_EMULATION_MESSAGE = "emulation_message"
-CONF_TAG_TTL = "tag_ttl"
-CONF_ON_EMULATED_TAG_SCAN = "on_emulated_tag_scan"
+from .. import pn7160
+from esphome import pins
 
 DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["pn7160"]
@@ -34,81 +13,23 @@ pn7160_spi_ns = cg.esphome_ns.namespace("pn7160_spi")
 PN7160Spi = pn7160_spi_ns.class_("PN7160Spi", pn7160.PN7160, spi.SPIDevice)
 
 CONFIG_SCHEMA = (
-    cv.Schema(
+    pn7160.PN7160_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(PN7160Spi),
-            # Required pins
             cv.Required(CONF_CS_PIN): pins.gpio_output_pin_schema,
-            cv.Required(CONF_IRQ_PIN): pins.gpio_input_pin_schema,
-            cv.Required(CONF_VEN_PIN): pins.gpio_output_pin_schema,
-            # Optional pins (from official API)
-            cv.Optional(CONF_DWL_REQ_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_WKUP_REQ_PIN): pins.gpio_output_pin_schema,
-            # Tag emulation options
-            cv.Optional(CONF_EMULATION_MESSAGE): cv.string,
-            cv.Optional(CONF_TAG_TTL, default="250ms"): cv.positive_time_period_milliseconds,
- cv.positive_time_period_milliseconds,
-            cv.Optional(CONF_MAX_FAILED_CHECKS, default=3): cv.int_range(min=1, max=10),
-            cv.Optional(CONF_AUTO_RESET_ON_FAILURE, default=True): cv.boolean,
-            # Standard options
-            cv.Optional(CONF_UPDATE_INTERVAL, default="1s"): cv.update_interval,
-            cv.Optional(CONF_ON_TAG): automation.validate_automation(
-                {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        pn7160.PN7160Trigger
-                    ),
-                }
-            ),
-            cv.Optional(CONF_ON_TAG_REMOVED): automation.validate_automation(
-                {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        pn7160.PN7160TagRemovedTrigger
-                    ),
-                }
-            ),
-            cv.Optional(CONF_ON_EMULATED_TAG_SCAN): automation.validate_automation(
-                {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(PN7160OnEmulatedTagScanTrigger)
-                }
-            ),
         }
     )
-    .extend(cv.polling_component_schema("1s"))
     .extend(spi.spi_device_schema())
+    .extend(cv.polling_component_schema("1s"))
 )
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
     await spi.register_spi_device(var, config)
-    await pn7160.setup_pn7160(var, config)
 
-    # Set CS pin
     cs_pin = await cg.gpio_pin_expression(config[CONF_CS_PIN])
     cg.add(var.set_cs_pin(cs_pin))
-    
-    # Set pins
-    irq_pin = await cg.gpio_pin_expression(config[CONF_IRQ_PIN])
-    cg.add(var.set_irq_pin(irq_pin))
-    
-    ven_pin = await cg.gpio_pin_expression(config[CONF_VEN_PIN])
-    cg.add(var.set_ven_pin(ven_pin))
-    
-    # Optional pins
-    if CONF_DWL_REQ_PIN in config:
-        dwl_req_pin = await cg.gpio_pin_expression(config[CONF_DWL_REQ_PIN])
-        cg.add(var.set_dwl_req_pin(dwl_req_pin))
-    
-    if CONF_WKUP_REQ_PIN in config:
-        wkup_req_pin = await cg.gpio_pin_expression(config[CONF_WKUP_REQ_PIN])
-        cg.add(var.set_wkup_req_pin(wkup_req_pin))
-    
-    # Tag TTL
-    if CONF_TAG_TTL in config:
-        cg.add(var.set_tag_ttl(config[CONF_TAG_TTL]))
-    
-    # Emulation message
-    if CONF_EMULATION_MESSAGE in config:
-        cg.add(var.set_tag_emulation_message(config[CONF_EMULATION_MESSAGE]))
-  
+
+    await pn7160.setup_pn7160(var, config)
+
