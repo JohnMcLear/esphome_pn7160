@@ -50,6 +50,5 @@ pn7160_i2c:
 
 binary_sensor:
   - platform: nfc
-    pn7160_id: pn7160_board
     name: "Test Badge I2C"
     uid: "04-A3-B2-C1-D4-E5-F6"
