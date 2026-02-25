@@ -33,7 +33,6 @@ pn7160_i2c:
   address: 0x28
   irq_pin: GPIO18   # Required
   ven_pin: GPIO19   # Required
-  update_interval: 1s
   health_check_enabled: true
   health_check_interval: 60s
   max_failed_checks: 3

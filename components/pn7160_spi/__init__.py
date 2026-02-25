@@ -20,7 +20,6 @@ CONFIG_SCHEMA = (
         }
     )
     .extend(spi.spi_device_schema())
-    .extend(cv.polling_component_schema("1s"))
 )
 
 
