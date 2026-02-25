@@ -1,14 +1,16 @@
 #pragma once
 
-#include "../pn7160/pn7160.h"
+#include "esphome/core/component.h"
+#include "esphome/components/pn7160/pn7160.h"
 #include "esphome/components/i2c/i2c.h"
+
+#include <vector>
 
 namespace esphome {
 namespace pn7160_i2c {
 
 class PN7160I2C : public pn7160::PN7160, public i2c::I2CDevice {
  public:
-  void setup() override;
   void dump_config() override;
 
  protected:
@@ -18,4 +20,3 @@ class PN7160I2C : public pn7160::PN7160, public i2c::I2CDevice {
 
 }  // namespace pn7160_i2c
 }  // namespace esphome
-
