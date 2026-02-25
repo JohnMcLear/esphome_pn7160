@@ -87,7 +87,6 @@ SET_MESSAGE_ACTION_SCHEMA = cv.Schema(
 
 PN7160_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(): cv.declare_id(PN7160),
         cv.Optional(CONF_ON_EMULATED_TAG_SCAN): automation.validate_automation(
             {
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
