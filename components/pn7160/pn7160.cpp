@@ -38,7 +38,17 @@ void PN7160::dump_config() {
 }
 
 void PN7160::loop() {
-  this->perform_health_check_();  // ← add this line
+  // Fast recovery for stuck EP states -- should never last more than 2 seconds
+  if ((this->nci_state_ == NCIState::EP_DEACTIVATING ||
+       this->nci_state_ == NCIState::EP_SELECTING) &&
+      (millis() - this->last_nci_state_change_ > 2000)) {
+    ESP_LOGW(TAG, "Stuck in EP state %u for %ums -- forcing NFCC reset",
+             (uint8_t) this->nci_state_,
+             millis() - this->last_nci_state_change_);
+    this->nci_fsm_set_state_(NCIState::NFCC_RESET);
+    return;
+  }
+  this->perform_health_check_();
   this->nci_fsm_transition_();
   this->purge_old_tags_();
 }
