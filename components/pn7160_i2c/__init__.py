@@ -11,6 +11,11 @@ from esphome.const import (
 )
 from .. import pn7160  # Import base pn7160 component
 
+PN7160OnEmulatedTagScanTrigger = cg.esphome_ns.namespace("pn7160").class_(
+    "PN7160OnEmulatedTagScanTrigger",
+    automation.Trigger.template(),  # no parameters
+)
+
 # Import constants from parent pn7160 component
 CONF_DWL_REQ_PIN = "dwl_req_pin"
 CONF_IRQ_PIN = "irq_pin"
@@ -55,22 +60,20 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ON_TAG): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        pn7160.PN7160OnTagTrigger
+                        pn7160.PN7160Trigger
                     ),
                 }
             ),
             cv.Optional(CONF_ON_TAG_REMOVED): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        pn7160.PN7160OnTagRemovedTrigger
+                        pn7160.PN7160TagRemovedTrigger
                     ),
                 }
             ),
             cv.Optional(CONF_ON_EMULATED_TAG_SCAN): automation.validate_automation(
                 {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        pn7160.PN7160OnEmulatedTagScanTrigger
-                    ),
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(PN7160OnEmulatedTagScanTrigger),
                 }
             ),
         }
