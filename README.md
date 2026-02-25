@@ -64,7 +64,7 @@ pn7160_i2c:
           args: ['x.c_str()']
 
 binary_sensor:
-  - platform: pn7160
+  - platform: nfc
     name: "My NFC Tag"
     uid: "04-A3-B2-C1-D4-E5-F6"
 ```
@@ -106,7 +106,7 @@ pn7160_spi:
       - homeassistant.tag_scanned: !lambda 'return x;'
 
 binary_sensor:
-  - platform: pn7160
+  - platform: nfc
     name: "My NFC Tag"
     uid: "04-A3-B2-C1-D4-E5-F6"
 ```
@@ -124,7 +124,7 @@ All the same options as I2C above, plus:
 
 ```yaml
 binary_sensor:
-  - platform: pn7160
+  - platform: nfc
     pn7160_id: pn7160_board   # required if multiple PN7160 instances
     name: "My Tag"
     uid: "04-A3-B2-C1-D4-E5-F6"  # hyphen or colon separated hex

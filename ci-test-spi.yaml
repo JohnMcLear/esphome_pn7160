@@ -47,7 +47,7 @@ pn7160_spi:
           args: ['x.c_str()']
 
 binary_sensor:
-  - platform: pn7160
+  - platform: nfc
     pn7160_id: pn7160_board
     name: "Test Badge SPI"
     uid: "04-A3-B2-C1-D4-E5-F6"
