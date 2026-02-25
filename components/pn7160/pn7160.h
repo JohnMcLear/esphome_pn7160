@@ -16,7 +16,7 @@ namespace pn7160 {
 
 static const uint16_t NFCC_DEFAULT_TIMEOUT = 10;
 static const uint16_t NFCC_INIT_TIMEOUT = 50;
-static const uint16_t NFCC_TAG_WRITE_TIMEOUT = 15;
+static const uint16_t NFCC_TAG_WRITE_TIMEOUT = 50;
 
 static const uint8_t NFCC_MAX_COMM_FAILS = 3;
 static const uint8_t NFCC_MAX_ERROR_COUNT = 10;

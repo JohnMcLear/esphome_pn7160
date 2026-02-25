@@ -1122,57 +1122,52 @@ void PN7160::card_emu_t4t_get_response_(std::vector<uint8_t> &response, std::vec
 
 uint8_t PN7160::transceive_(nfc::NciMessage &tx, nfc::NciMessage &rx, const uint16_t timeout,
                             const bool expect_notification) {
-  uint8_t retries = NFCC_MAX_COMM_FAILS;
   char buf[nfc::FORMAT_BYTES_BUFFER_SIZE];
 
-  while (retries) {
-    // first, send the message we need to send
-    if (this->write_nfcc(tx) != nfc::STATUS_OK) {
-      ESP_LOGE(TAG, "Error sending message");
-      return nfc::STATUS_FAILED;
-    }
-    ESP_LOGVV(TAG, "Wrote: %s", nfc::format_bytes_to(buf, tx.get_message()));
-    // next, the NFCC should send back a response
-    if (this->read_nfcc(rx, timeout) != nfc::STATUS_OK) {
-      ESP_LOGW(TAG, "Error receiving message");
-      if (!retries--) {
-        ESP_LOGE(TAG, "  ...giving up");
-        return nfc::STATUS_FAILED;
-      }
-    } else {
+  // Send command ONCE only -- resending on read timeout confuses the NCI state machine
+  if (this->write_nfcc(tx) != nfc::STATUS_OK) {
+    ESP_LOGE(TAG, "Error sending message");
+    return nfc::STATUS_FAILED;
+  }
+  ESP_LOGVV(TAG, "Wrote: %s", nfc::format_bytes_to(buf, tx.get_message()));
+
+  // Retry reads only -- chip has already received the command
+  uint8_t retries = NFCC_MAX_COMM_FAILS;
+  while (true) {
+    if (this->read_nfcc(rx, timeout) == nfc::STATUS_OK) {
       break;
     }
+    if (!retries--) {
+      ESP_LOGE(TAG, "Error receiving message -- giving up");
+      return nfc::STATUS_FAILED;
+    }
+    ESP_LOGW(TAG, "Error receiving message -- retrying read");
   }
+
   ESP_LOGVV(TAG, "Read: %s", nfc::format_bytes_to(buf, rx.get_message()));
-  // validate the response based on the message type that was sent (command vs. data)
+
   if (!tx.message_type_is(nfc::NCI_PKT_MT_DATA)) {
-    // for commands, the GID and OID should match and the status should be OK
-    if ((rx.get_gid() != tx.get_gid()) || (rx.get_oid()) != tx.get_oid()) {
+    if ((rx.get_gid() != tx.get_gid()) || (rx.get_oid() != tx.get_oid())) {
       ESP_LOGE(TAG, "Incorrect response to command: %s", nfc::format_bytes_to(buf, rx.get_message()));
       return nfc::STATUS_FAILED;
     }
-
     if (!rx.simple_status_response_is(nfc::STATUS_OK)) {
       ESP_LOGE(TAG, "Error in response to command: %s", nfc::format_bytes_to(buf, rx.get_message()));
     }
     return rx.get_simple_status_response();
   } else {
-    // when requesting data from the endpoint, the first response is from the NFCC; we must validate this, first
     if ((!rx.message_type_is(nfc::NCI_PKT_MT_CTRL_NOTIFICATION)) || (!rx.gid_is(nfc::NCI_CORE_GID)) ||
         (!rx.oid_is(nfc::NCI_CORE_CONN_CREDITS_OID)) || (!rx.message_length_is(3))) {
       ESP_LOGE(TAG, "Incorrect response to data message: %s", nfc::format_bytes_to(buf, rx.get_message()));
       return nfc::STATUS_FAILED;
     }
-
     if (expect_notification) {
-      // if the NFCC said "OK", there will be additional data to read; this comes back in a notification message
       if (this->read_nfcc(rx, timeout) != nfc::STATUS_OK) {
         ESP_LOGE(TAG, "Error receiving data from endpoint");
         return nfc::STATUS_FAILED;
       }
       ESP_LOGVV(TAG, "Read: %s", nfc::format_bytes_to(buf, rx.get_message()));
     }
-
     return nfc::STATUS_OK;
   }
 }
