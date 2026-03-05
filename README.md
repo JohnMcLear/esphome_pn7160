@@ -49,9 +49,13 @@ i2c:
 pn7160_i2c:
   id: pn7160_board
   address: 0x28
-  irq_pin: GPIO18   # Required for PN7160
-  ven_pin: GPIO19   # Required for PN7160
-  tag_ttl: 500ms    # Optional, default 250ms
+  irq_pin: GPIO18
+  ven_pin: GPIO19
+  tag_ttl: 500ms
+  health_check_enabled: true
+  health_check_interval: 30s
+  max_failed_checks: 3
+  auto_reset_on_failure: true
   on_tag:
     then:
       - logger.log:
@@ -103,8 +107,13 @@ spi:
 pn7160_spi:
   id: pn7160_board
   cs_pin: GPIO5
-  irq_pin: GPIO17   # Required for PN7160
-  ven_pin: GPIO16   # Required for PN7160
+  irq_pin: GPIO17
+  ven_pin: GPIO16
+  tag_ttl: 500ms
+  health_check_enabled: true
+  health_check_interval: 30s
+  max_failed_checks: 3
+  auto_reset_on_failure: true
   on_tag:
     then:
       - homeassistant.tag_scanned: !lambda 'return x;'
