@@ -10,9 +10,36 @@
 #include "esphome/core/helpers.h"
 
 #include <functional>
+#include <vector>
+#include <cstring>
 
 namespace esphome {
+namespace nfc {
+// Compatibility shim for missing symbols in older core nfc component
+using NfcTagUid = std::vector<uint8_t>;
+static const size_t FORMAT_BYTES_BUFFER_SIZE = 128;
+static const size_t FORMAT_UID_BUFFER_SIZE = 32;
+inline const char *format_bytes_to(char *buf, const std::vector<uint8_t> &bytes) {
+  std::string s = format_bytes(const_cast<std::vector<uint8_t> &>(bytes));
+  strncpy(buf, s.c_str(), FORMAT_BYTES_BUFFER_SIZE - 1);
+  buf[FORMAT_BYTES_BUFFER_SIZE - 1] = '\0';
+  return buf;
+}
+inline const char *format_uid_to(char *buf, const std::vector<uint8_t> &uid) {
+  std::string s = format_uid(const_cast<std::vector<uint8_t> &>(uid));
+  strncpy(buf, s.c_str(), FORMAT_UID_BUFFER_SIZE - 1);
+  buf[FORMAT_UID_BUFFER_SIZE - 1] = '\0';
+  return buf;
+}
+}  // namespace nfc
+
 namespace pn7160 {
+
+enum PN7160Sensitivity {
+  PN7160_SENSITIVITY_LOW = 0,
+  PN7160_SENSITIVITY_MEDIUM,
+  PN7160_SENSITIVITY_HIGH,
+};
 
 static const uint16_t NFCC_DEFAULT_TIMEOUT = 10;
 static const uint16_t NFCC_INIT_TIMEOUT = 50;
@@ -169,6 +196,9 @@ class PN7160 : public nfc::Nfcc, public Component {
   void set_max_failed_checks(uint8_t max) { this->max_failed_checks_ = max; }
   void set_auto_reset_on_failure(bool reset) { this->auto_reset_on_failure_ = reset; }
 
+  void set_sensitivity(PN7160Sensitivity sensitivity) { this->sensitivity_ = sensitivity; }
+  void set_proprietary_config(const std::vector<uint8_t> &config) { this->proprietary_config_ = config; }
+
   void set_dwl_req_pin(GPIOPin *dwl_req_pin) { this->dwl_req_pin_ = dwl_req_pin; }
   void set_irq_pin(GPIOPin *irq_pin) { this->irq_pin_ = irq_pin; }
   void set_ven_pin(GPIOPin *ven_pin) { this->ven_pin_ = ven_pin; }
@@ -213,6 +243,7 @@ class PN7160 : public nfc::Nfcc, public Component {
   uint8_t init_core_();
   uint8_t send_init_config_();
   uint8_t send_core_config_();
+  uint8_t send_rf_config_();
   uint8_t refresh_core_config_();
 
   uint8_t set_discover_map_();
@@ -290,6 +321,9 @@ class PN7160 : public nfc::Nfcc, public Component {
   bool core_config_is_solo_{false};
   bool listening_enabled_{false};
   bool polling_enabled_{true};
+
+  PN7160Sensitivity sensitivity_{PN7160_SENSITIVITY_MEDIUM};
+  std::vector<uint8_t> proprietary_config_;
 
   uint8_t error_count_{0};
   uint8_t fail_count_{0};
