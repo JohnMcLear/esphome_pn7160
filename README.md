@@ -51,7 +51,7 @@ pn7160_i2c:
   address: 0x28
   irq_pin: GPIO18   # Required for PN7160
   ven_pin: GPIO19   # Required for PN7160
-  update_interval: 1s
+  tag_ttl: 500ms    # Optional, default 250ms
   on_tag:
     then:
       - logger.log:
@@ -74,8 +74,13 @@ binary_sensor:
 - **`address`** (*Optional*, default `0x28`): I2C address (configurable via HIF pins: 0x28-0x2B).
 - **`irq_pin`** (**Required**): IRQ (interrupt) pin — signals when data is ready to read.
 - **`ven_pin`** (**Required**): VEN (enable) pin — powers device on/off, used for hard reset.
-- **`update_interval`** (*Optional*, default `1s`): How often to check for tags.
+- **`dwl_req_pin`** (*Optional*): Pin used for firmware download mode.
+- **`wkup_req_pin`** (*Optional*): Pin used to wake up the chip.
+- **`tag_ttl`** (*Optional*, default `250ms`): Time-to-live for a tag to be considered "present" since last seen.
+- **`emulation_message`** (*Optional*): NDEF message to use for card emulation.
 - **`on_tag`** / **`on_tag_removed`**: Automation triggers (variable `x` is UID string).
+- **`on_emulated_tag_scan`**: Trigger when an emulated tag is scanned by an external reader.
+- **`on_finished_write`**: Trigger when a tag write operation completes.
 - **`health_check_enabled`** (*Optional*, default `true`): Enable periodic health checks.
 - **`health_check_interval`** (*Optional*, default `60s`): Health check frequency.
 - **`max_failed_checks`** (*Optional*, default `3`): Failures before declaring unhealthy.
@@ -100,15 +105,9 @@ pn7160_spi:
   cs_pin: GPIO5
   irq_pin: GPIO17   # Required for PN7160
   ven_pin: GPIO16   # Required for PN7160
-  update_interval: 1s
   on_tag:
     then:
       - homeassistant.tag_scanned: !lambda 'return x;'
-
-binary_sensor:
-  - platform: nfc
-    name: "My NFC Tag"
-    uid: "04-A3-B2-C1-D4-E5-F6"
 ```
 
 ### SPI Configuration Variables
@@ -117,6 +116,67 @@ All the same options as I2C above, plus:
 
 - **`cs_pin`** (**Required**): Chip select pin.
 - **`spi_id`** (*Optional*): Manually specify SPI bus ID.
+
+---
+
+## Actions
+
+### `tag.set_emulation_message`
+Sets the NDEF message to be used during card emulation.
+```yaml
+on_...:
+  then:
+    - tag.set_emulation_message:
+        id: pn7160_board
+        message: "https://esphome.io"
+```
+
+### `tag.emulation_on` / `tag.emulation_off`
+Enables or disables card emulation mode.
+```yaml
+on_...:
+  then:
+    - tag.emulation_on: pn7160_board
+```
+
+### `tag.polling_on` / `tag.polling_off`
+Enables or disables tag polling (reader mode).
+```yaml
+on_...:
+  then:
+    - tag.polling_off: pn7160_board
+```
+
+### `tag.set_write_message` / `tag.set_write_mode`
+Prepares a message and enters write mode.
+```yaml
+on_...:
+  then:
+    - tag.set_write_message:
+        id: pn7160_board
+        message: "New Tag Content"
+    - tag.set_write_mode: pn7160_board
+```
+
+### `tag.set_read_mode` / `tag.set_clean_mode` / `tag.set_format_mode`
+Sets the operational mode for the next tag interaction.
+- `set_read_mode`: (Default) Reads NDEF data from the tag.
+- `set_clean_mode`: Erases NDEF data from the tag.
+- `set_format_mode`: Formats the tag for NDEF.
+
+---
+
+## Conditions
+
+### `pn7160.is_writing`
+Returns true if the component is currently waiting to write to a tag.
+```yaml
+if:
+  condition:
+    pn7160.is_writing: pn7160_board
+  then:
+    ...
+```
 
 ---
 
@@ -149,14 +209,12 @@ Then add a `binary_sensor:` entry with that UID.
 
 ---
 
-## Health Check
+## Health Check Implementation
 
-Unlike PN7160 (which uses `GetFirmwareVersion`), PN7160 health check uses:
-- **`CORE_RESET_CMD`** to verify NCI communication
-- Reads **`CORE_RESET_NTF`** to confirm IC responds
-- On repeated failures, toggles **VEN pin** (hard reset) to recover
-
-This resolves IRQ blocking and communication freeze bugs.
+The PN7160 health check periodically validates the internal state machine.
+- It detects if the chip is stuck in transient initialization states (RESET, INIT, CONFIG, etc.).
+- It monitors for "stuck" IRQ states where the chip fails to progress.
+- If failures exceed `max_failed_checks`, it performs a hard reset by toggling the **VEN pin**.
 
 ---
 
@@ -170,16 +228,16 @@ This resolves IRQ blocking and communication freeze bugs.
 
 ---
 
-## Differences from PN7160
+## Differences from Native ESPHome Component
 
-| Feature | PN7160 | PN7160 |
+| Feature | Native `pn7160` | This Component |
 |---|---|---|
-| Protocol | Raw PN7160 commands | NCI 2.0 (standard) |
-| Required pins | RSTPD_N (optional, SPI only) | IRQ + VEN (both required) |
-| I2C address | 0x24 (fixed) | 0x28-0x2B (configurable via HIF) |
-| I2C frequency | 50kHz OK | **100kHz minimum** |
-| Capabilities | Reader only | Reader + card emulation |
-| Hard reset | Optional via RSTPD_N | Required via VEN pin |
+| Health Check | None | **Periodic state validation** |
+| Auto-Recovery | None | **VEN pin hard reset** |
+| I2C Freq Check | None | **Safety warning if < 100kHz** |
+| Card Emulation | Minimal | **Full NDEF message emulation** |
+| Tag TTL | Fixed | **Configurable via `tag_ttl`** |
+| Stuck IRQ fix | No | **Yes** |
 
 ---
 
