@@ -39,11 +39,9 @@ void PN7160::dump_config() {
 
 void PN7160::loop() {
   // Fast recovery for stuck EP states -- should never last more than 2 seconds
-  if ((this->nci_state_ == NCIState::EP_DEACTIVATING ||
-       this->nci_state_ == NCIState::EP_SELECTING) &&
+  if ((this->nci_state_ == NCIState::EP_DEACTIVATING || this->nci_state_ == NCIState::EP_SELECTING) &&
       (millis() - this->last_nci_state_change_ > 2000)) {
-    ESP_LOGW(TAG, "Stuck in EP state %u for %ums -- forcing NFCC reset",
-             (uint8_t) this->nci_state_,
+    ESP_LOGW(TAG, "Stuck in EP state %u for %ums -- forcing NFCC reset", (uint8_t) this->nci_state_,
              millis() - this->last_nci_state_change_);
     this->nci_fsm_set_state_(NCIState::NFCC_RESET);
     return;
@@ -278,8 +276,8 @@ uint8_t PN7160::reset_core_(const bool reset_config, const bool power) {
 
   ESP_LOGD(TAG,
            "Configuration %s\n"
-           "NCI version: %s\n"
-           "Manufacturer ID: 0x%02X",
+           "  NCI version: %s\n"
+           "  Manufacturer ID: 0x%02X",
            rx.get_message()[4] ? "reset" : "retained", rx.get_message()[5] == 0x20 ? "2.0" : "1.0",
            rx.get_message()[6]);
   rx.get_message().erase(rx.get_message().begin(), rx.get_message().begin() + 8);
@@ -313,10 +311,10 @@ uint8_t PN7160::init_core_() {
   char feat_buf[nfc::FORMAT_BYTES_BUFFER_SIZE];
   ESP_LOGD(TAG,
            "Hardware version: %u\n"
-           "ROM code version: %u\n"
-           "FLASH major version: %u\n"
-           "FLASH minor version: %u\n"
-           "Features: %s",
+           "  ROM code version: %u\n"
+           "  FLASH major version: %u\n"
+           "  FLASH minor version: %u\n"
+           "  Features: %s",
            hw_version, rom_code_version, flash_major_version, flash_minor_version,
            nfc::format_bytes_to(feat_buf, features));
 
@@ -1218,28 +1216,22 @@ void PN7160::perform_health_check_() {
 
   // Detect stuck init states -- classic symptom of I2C bus scan corruption
   // States that should never last more than a few seconds
-  bool in_stuck_state = (this->nci_state_ == NCIState::NFCC_RESET ||
-                         this->nci_state_ == NCIState::NFCC_INIT ||
-                         this->nci_state_ == NCIState::NFCC_CONFIG ||
-                         this->nci_state_ == NCIState::NFCC_SET_DISCOVER_MAP ||
-                         this->nci_state_ == NCIState::NFCC_SET_LISTEN_MODE_ROUTING ||
-                         this->nci_state_ == NCIState::EP_DEACTIVATING ||
-                         this->nci_state_ == NCIState::EP_SELECTING);
+  bool in_stuck_state =
+      (this->nci_state_ == NCIState::NFCC_RESET || this->nci_state_ == NCIState::NFCC_INIT ||
+       this->nci_state_ == NCIState::NFCC_CONFIG || this->nci_state_ == NCIState::NFCC_SET_DISCOVER_MAP ||
+       this->nci_state_ == NCIState::NFCC_SET_LISTEN_MODE_ROUTING || this->nci_state_ == NCIState::EP_DEACTIVATING ||
+       this->nci_state_ == NCIState::EP_SELECTING);
 
   // EP_DEACTIVATING/EP_SELECTING should complete in < 500ms normally
   uint32_t state_age = now - this->last_nci_state_change_;
-  bool stuck_too_long = (this->nci_state_ == NCIState::EP_DEACTIVATING ||
-                         this->nci_state_ == NCIState::EP_SELECTING)
+  bool stuck_too_long = (this->nci_state_ == NCIState::EP_DEACTIVATING || this->nci_state_ == NCIState::EP_SELECTING)
                             ? state_age > 2000
                             : state_age > this->health_check_interval_;
 
   if (in_stuck_state && stuck_too_long) {
     this->health_fail_count_++;
-    ESP_LOGW(TAG, "Health check: NFCC stuck in init state %u for %ums (%u/%u)",
-             (uint8_t) this->nci_state_,
-             now - this->last_nci_state_change_,
-             this->health_fail_count_,
-             this->max_failed_checks_);
+    ESP_LOGW(TAG, "Health check: NFCC stuck in init state %u for %ums (%u/%u)", (uint8_t) this->nci_state_,
+             now - this->last_nci_state_change_, this->health_fail_count_, this->max_failed_checks_);
     if (this->health_fail_count_ >= this->max_failed_checks_) {
       this->health_fail_count_ = 0;
       if (this->auto_reset_on_failure_) {
