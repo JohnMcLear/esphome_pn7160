@@ -1,23 +1,16 @@
 #pragma once
 
-#include "esphome/components/nfc/automation.h"
-#include "esphome/components/nfc/nci_core.h"
-#include "esphome/components/nfc/nci_message.h"
-#include "esphome/components/nfc/nfc.h"
-#include "esphome/components/nfc/nfc_helpers.h"
 #include "esphome/core/component.h"
-#include "esphome/core/gpio.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/version.h"
 
-#include <functional>
 #include <vector>
 #include <cstring>
 
 namespace esphome {
 namespace nfc {
 // Compatibility shim for missing symbols in older core nfc component
-#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 2, 4)
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 2, 2)
 using NfcTagUid = std::vector<uint8_t>;
 static const size_t FORMAT_BYTES_BUFFER_SIZE = 128;
 static const size_t FORMAT_UID_BUFFER_SIZE = 32;
@@ -35,7 +28,18 @@ inline const char *format_uid_to(char *buf, const std::vector<uint8_t> &uid) {
 }
 #endif
 }  // namespace nfc
+}  // namespace esphome
 
+#include "esphome/components/nfc/automation.h"
+#include "esphome/components/nfc/nci_core.h"
+#include "esphome/components/nfc/nci_message.h"
+#include "esphome/components/nfc/nfc.h"
+#include "esphome/components/nfc/nfc_helpers.h"
+#include "esphome/core/gpio.h"
+
+#include <functional>
+
+namespace esphome {
 namespace pn7160 {
 
 enum PN7160Sensitivity {
