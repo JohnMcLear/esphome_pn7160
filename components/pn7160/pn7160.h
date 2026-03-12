@@ -16,6 +16,7 @@
 namespace esphome {
 namespace nfc {
 // Compatibility shim for missing symbols in older core nfc component
+#ifndef NFC_UID_MAX_LENGTH
 using NfcTagUid = std::vector<uint8_t>;
 static const size_t FORMAT_BYTES_BUFFER_SIZE = 128;
 static const size_t FORMAT_UID_BUFFER_SIZE = 32;
@@ -31,6 +32,7 @@ inline const char *format_uid_to(char *buf, const std::vector<uint8_t> &uid) {
   buf[FORMAT_UID_BUFFER_SIZE - 1] = '\0';
   return buf;
 }
+#endif
 }  // namespace nfc
 
 namespace pn7160 {

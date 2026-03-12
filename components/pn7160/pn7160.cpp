@@ -246,6 +246,8 @@ uint8_t PN7160::reset_core_(const bool reset_config, const bool power) {
     delay(NFCC_INIT_TIMEOUT);
   }
 
+  delay(NFCC_INIT_TIMEOUT); // Add extra delay before sending the first command
+
   nfc::NciMessage rx;
   nfc::NciMessage tx(nfc::NCI_PKT_MT_CTRL_COMMAND, nfc::NCI_CORE_GID, nfc::NCI_CORE_RESET_OID,
                      {(uint8_t) reset_config});
