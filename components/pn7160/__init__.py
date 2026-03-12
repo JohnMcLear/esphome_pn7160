@@ -13,6 +13,8 @@ from esphome.const import (
     CONF_TRIGGER_ID,
 )
 
+cv.require_esphome_version(2024, 12, 0)
+
 AUTO_LOAD = ["binary_sensor", "nfc"]
 CODEOWNERS = ["@kbx81", "@jesserockz"]
 

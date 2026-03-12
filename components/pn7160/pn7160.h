@@ -10,7 +10,7 @@
 namespace esphome {
 namespace nfc {
 // Compatibility shim for missing symbols in older core nfc component
-#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 2, 2)
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
 using NfcTagUid = std::vector<uint8_t>;
 static const size_t FORMAT_BYTES_BUFFER_SIZE = 128;
 static const size_t FORMAT_UID_BUFFER_SIZE = 32;
