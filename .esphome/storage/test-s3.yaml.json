@@ -1,0 +1,31 @@
+{
+  "storage_version": 1,
+  "name": "pn7160-wrover-test",
+  "friendly_name": "PN7160 Wrover Test",
+  "comment": null,
+  "esphome_version": "2026.2.4",
+  "src_version": 1,
+  "address": null,
+  "web_port": null,
+  "esp_platform": "ESP32",
+  "build_path": "/home/jose/esphome_pn7160/.esphome/build/pn7160-wrover-test",
+  "firmware_bin_path": "/home/jose/esphome_pn7160/.esphome/build/pn7160-wrover-test/.pioenvs/pn7160-wrover-test/firmware.bin",
+  "loaded_integrations": [
+    "binary_sensor",
+    "esp32",
+    "esphome",
+    "external_components",
+    "i2c",
+    "logger",
+    "nfc",
+    "pn7160",
+    "pn7160_i2c",
+    "preferences"
+  ],
+  "loaded_platforms": [
+    "binary_sensor/nfc"
+  ],
+  "no_mdns": false,
+  "framework": "esp-idf",
+  "core_platform": "esp32"
+}

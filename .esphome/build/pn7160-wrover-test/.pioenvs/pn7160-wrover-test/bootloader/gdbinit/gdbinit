@@ -1,0 +1,2 @@
+source /home/jose/esphome_pn7160/.esphome/build/pn7160-wrover-test/.pioenvs/pn7160-wrover-test/bootloader/gdbinit/symbols
+source /home/jose/esphome_pn7160/.esphome/build/pn7160-wrover-test/.pioenvs/pn7160-wrover-test/bootloader/gdbinit/connect
