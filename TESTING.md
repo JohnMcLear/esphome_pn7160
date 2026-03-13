@@ -113,6 +113,19 @@ binary_sensor:
 | **Dual Detection** | **Action:** Place one card on I2C and another on SPI simultaneously. | Both cards detected and held in ON state concurrently. |
 | **UID Format** | **Action:** Configure binary sensor with `uid: "AA:BB:CC:DD"` (colon-separated). | Sensor matches tag correctly (colon and hyphen formats both accepted). |
 
+### Phase 2b: `on_tag_removed` Lifecycle
+| Test Case | Operator Action | Expected Result |
+|---|---|---|
+| **Basic Removal (I2C)** | **Action:** Place a tag on hub_i2c, wait for `on_tag` log, then remove tag. | `on_tag_removed` fires and logs the same UID that was reported by `on_tag`. |
+| **Basic Removal (SPI)** | **Action:** Place a tag on hub_spi, wait for `on_tag` log, then remove tag. | `on_tag_removed` fires and logs the same UID that was reported by `on_tag`. |
+| **UID Match** | **Action:** Use a tag with a known UID (e.g. `04-A3-B2-C1-D4-E5-F6`). Present then remove. | The UID string in `on_tag_removed` exactly matches the UID string from `on_tag`. |
+| **Binary Sensor OFF** | **Action:** Present tag (binary sensor turns ON), then remove tag. | Binary sensor transitions to OFF state after tag is removed. No spurious ON/OFF flicker while tag is present. |
+| **TTL Delay** | **Action:** Set `tag_ttl: 1s`. Present tag, remove, observe logs. | `on_tag_removed` fires approximately 1 second after the tag leaves the field (not immediately). |
+| **Short TTL** | **Action:** Set `tag_ttl: 100ms`. Present tag, remove, observe logs. | `on_tag_removed` fires quickly (~100ms) after removal. Binary sensor reflects the faster timeout. |
+| **Rapid Place/Remove** | **Action:** Rapidly place and remove the same tag 5+ times (< 1s per cycle). | Each cycle produces exactly one `on_tag` and one `on_tag_removed`. No missed events, no duplicate firings. |
+| **Cross-Bus Removal** | **Action:** Present a tag on I2C, confirm `on_tag` on `hub_i2c`, remove tag. | Only `hub_i2c` fires `on_tag_removed`. `hub_spi` is unaffected and logs nothing. |
+| **No Ghost Removal** | **Action:** Leave a tag stationary on the reader for 120s. | `on_tag_removed` does **not** fire during the dwell period. The tag stays in ON state. |
+
 ### Phase 3: NDEF Operations
 | Test Case | Operator Action | Expected Result |
 |---|---|---|
@@ -129,6 +142,29 @@ binary_sensor:
 | **Recovery After Reset** | **Action:** After a VEN reset, place a tag. | Component re-initializes and resumes normal tag detection. |
 | **Disabled Health Check** | **Action:** Set `health_check_enabled: false`. | No health check logs appear. Component operates in polling-only mode. |
 
+### Phase 5: Responsiveness & Main-Loop Non-Blocking
+The PN7160 component must not stall the ESP32 main loop. This phase verifies that all NFC operations are non-blocking and that other firmware tasks remain responsive throughout.
+
+**Setup:** Add a `interval:` component that logs every 500ms alongside the PN7160 config. This acts as a "heartbeat" to show the main loop is alive.
+
+```yaml
+interval:
+  - interval: 500ms
+    then:
+      - logger.log: "Heartbeat"
+```
+
+| Test Case | Operator Action | Expected Result |
+|---|---|---|
+| **Idle Heartbeat** | **Action:** Boot with no tag present. Watch serial log for 30s. | "Heartbeat" logs appear every ~500ms without gaps or delays throughout. |
+| **Tag Detection Latency** | **Action:** Present a tag to the reader. Note the time between physical contact and the `on_tag` log line. | Tag detected within 1 second of presentation. Heartbeat continues uninterrupted during detection. |
+| **Removal Detection Latency** | **Action:** Remove a tag and note the time between physical removal and the `on_tag_removed` log line. | Removal detected within `tag_ttl` + 1 polling cycle. Heartbeat continues without gaps during removal. |
+| **NDEF Read Non-Blocking** | **Action:** Place an NTAG with an NDEF payload. Watch the heartbeat while the read completes. | Heartbeat keeps firing at ~500ms during the entire NDEF read. No `took a long time` or `delay()` warnings in logs. |
+| **NDEF Write Non-Blocking** | **Action:** Trigger a write via `tag.set_write_mode`, then present an NTAG. Watch the heartbeat. | Heartbeat continues during NDEF write. `on_finished_write` fires after write completes. No blocking warnings. |
+| **WiFi Keepalive** | **Action:** Actively poll tags (place/remove 10 times) while monitoring WiFi connection (RSSI or ping). | WiFi remains connected throughout. No WiFi disconnect or reconnect events logged. |
+| **Dual-Bus Polling Load** | **Action:** Run both `hub_i2c` and `hub_spi` simultaneously, placing/removing tags on each. Watch the heartbeat. | Heartbeat remains steady at ~500ms. Both hubs respond without starving each other. |
+| **Long-Running Stability** | **Action:** Leave both hubs polling continuously for 10 minutes with tags alternating. | No crashes, reboots, or `took a long time` warnings. Heartbeat uninterrupted throughout. |
+
 ## 4. Success Criteria
 - [x] **I2C Hardware:** PN7160 initializes and reads tags reliably over I2C at ≥ 100kHz without IRQ timeouts.
 - [x] **SPI Hardware:** PN7160 initializes and reads tags reliably over SPI without timeouts or data corruption.
@@ -140,6 +176,14 @@ binary_sensor:
 - [x] **Non-blocking:** No `delay()` or `took a long time` warnings during normal polling.
 - [x] **Format Compatibility:** Both `AA-BB` and `AA:BB` UID formats accepted in YAML binary sensor config.
 - [x] **Card Emulation:** NDEF emulation message readable by an external NFC reader.
+- [x] **on_tag_removed:** Callback fires with the correct matching UID every time a tag leaves the field.
+- [x] **Binary Sensor OFF:** Binary sensor correctly transitions to OFF state when a tag is removed.
+- [x] **TTL Accuracy:** `tag_ttl` setting correctly controls the delay between physical removal and `on_tag_removed`.
+- [x] **No Ghost Removals:** `on_tag_removed` does not fire spuriously while a tag remains on the reader.
+- [x] **Rapid Cycle Stability:** Each place/remove cycle produces exactly one `on_tag` and one `on_tag_removed` with no missed or duplicate events.
+- [x] **Main-Loop Responsiveness:** Heartbeat interval component fires at the expected rate throughout all NFC operations without gaps.
+- [x] **Tag Detection Latency:** Tags detected within 1 second of presentation; removal detected within `tag_ttl` + 1 polling cycle.
+- [x] **WiFi Keepalive:** WiFi connection remains stable during active NFC polling on both buses.
 - [ ] **Mifare Authentication:** Resolve intermittent failures with non-standard keys.
 - [ ] **Robust Counterfeit Detection:** Module correctly identifies emulated clones using hardware-level diagnostic checks.
 - [ ] **NTAG216 Stability:** NDEF writing completes without timing out on high-capacity NTAG216 modules.
