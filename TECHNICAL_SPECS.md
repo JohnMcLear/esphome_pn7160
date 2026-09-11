@@ -59,3 +59,72 @@ The PN7160 uses tag `0xA0 0E` for PMU configuration (11 bytes).
 Current implementation in ESPHome sets TXLDO to 5.0V:
 `0x01, 0xA0, 0x0E, 11, 0x11, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0xFF, 0x00, 0xD0, 0x0C`
 *(Note: 0xFF in the 11th byte position corresponds to 5.0V).*
+
+## 7. Supply Requirements, and the failure they cause
+
+The transmitter regulator is the part most likely to bite you, and the symptom
+does not look like a power problem.
+
+### What the chip needs
+
+| Rail | Requirement |
+|---|---|
+| VBAT | 2.8V to 5.5V |
+| VUP / TVDD | Must be able to feed TXLDO at the configured output |
+| TXLDO output | Set to 5.0V by this component, see section 6 |
+| Driver current | Up to 250mA, so the supply must carry it during RF bursts |
+
+Section 6 sets TXLDO to 5.0V unconditionally. That is the right default for
+range, but it means the board has to be able to deliver it. A supply that merely
+holds 3.3V steady, or one that sags under a 250mA burst, will not.
+
+### 3.3V is not required when 5V is present
+
+On a PN7161 there is no need to feed 3.3V/VDD separately if 5V is available.
+Boards that bridge 3.3V to 5V to "help" can make things worse rather than better.
+At least one reported failure was cured by removing exactly such a bridge.
+
+### The symptom, and why it is misleading
+
+A failing regulator does **not** report itself as a power problem. It looks like
+a dead device:
+
+```
+[E][pn7160:718]: Too many initialization failures -- check device connections
+[E][component:119]: Component pn7160 was marked as failed.
+```
+
+That message sends people to check wiring and I2C addresses, which is the wrong
+place. Underneath, the chip is emitting this on repeat:
+
+```
+61 23 00
+```
+
+A control notification, group RF, OID 0x23, no payload. NXP UM11495 documents
+0x23 as TxLdo failing to start, from a missing or bad supply on VUP/TVDD, or a
+bad clock or power configuration.
+
+**This component now decodes that** and logs it at ERROR:
+
+```
+[E][pn7160:...]: RF transmitter regulator did not start (TxLdo). Check the
+VUP/TVDD supply and the clock/power configuration
+```
+
+Upstream still drops it into a verbose-level default branch, so on stock ESPHome
+you will not see it at all unless logging is turned right up.
+
+### Two unrelated causes, one symptom
+
+Worth knowing, because they are easy to confuse and the fix for one does nothing
+for the other:
+
+| Cause | Tell | Fix |
+|---|---|---|
+| I2C bus below 100kHz | IRQ timeouts during init | Set `frequency: 100kHz` or higher |
+| Supply cannot start TXLDO | `61 23 00` on repeat | Fix VUP/TVDD, remove any 3.3V to 5V bridge |
+
+Both produce "Too many initialization failures". See esphome/issues#6339, where
+the original report was the first and a later report was the second.
+
