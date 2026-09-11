@@ -36,6 +36,18 @@ external_components:
 
 ---
 
+## Troubleshooting: "Too many initialization failures"
+
+This message has **two unrelated causes** and the fix for one does nothing for
+the other. See [TECHNICAL_SPECS.md](TECHNICAL_SPECS.md) section 7 for detail.
+
+1. **I2C below 100kHz.** ESPHome defaults to 50kHz, which causes IRQ timeouts.
+   Set `frequency: 100kHz` or higher.
+2. **The supply cannot start the transmitter regulator.** The chip reports
+   `61 23 00` on repeat, which this component decodes and logs at ERROR level.
+   Check VUP/TVDD, and remove any 3.3V to 5V bridge. On a PN7161, 3.3V/VDD is not
+   needed separately when 5V is present.
+
 ## Over I2C (IMPORTANT: Frequency >= 100kHz Required)
 
 ```yaml
