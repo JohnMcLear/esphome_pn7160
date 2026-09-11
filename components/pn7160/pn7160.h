@@ -62,6 +62,11 @@ static const uint8_t TEST_PRBS_OID = 0x30;
 static const uint8_t TEST_ANTENNA_OID = 0x3D;
 static const uint8_t TEST_GET_REGISTER_OID = 0x33;
 
+// NXP proprietary RF notification. UM11495 documents OID 0x23 as indicating that TxLdo, the RF transmitter
+// regulator, could not start. The stated causes are a missing or bad supply on VUP/TVDD, or a bad clock or
+// power configuration. See esphome/issues#6339.
+static const uint8_t RF_TXLDO_ERROR_OID = 0x23;
+
 static const uint8_t MFC_AUTHENTICATE_PARAM_KS_A = 0x00;  // key select A
 static const uint8_t MFC_AUTHENTICATE_PARAM_KS_B = 0x80;  // key select B
 static const uint8_t MFC_AUTHENTICATE_PARAM_EMBED_KEY = 0x10;

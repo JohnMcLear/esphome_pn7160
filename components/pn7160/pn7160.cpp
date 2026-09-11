@@ -820,6 +820,14 @@ void PN7160::process_message_() {
             this->process_rf_deactivate_oid_(rx);
             return;
 
+          case RF_TXLDO_ERROR_OID:
+            // Logged at ERROR rather than the verbose level used by the cases above, because this is a hardware
+            // fault the user has to act on rather than a discovery state transition. Without this the chip's own
+            // diagnosis is discarded and the user sees only "Too many initialization failures".
+            ESP_LOGE(TAG, "RF transmitter regulator did not start (TxLdo). Check the VUP/TVDD supply and the "
+                          "clock/power configuration");
+            return;
+
           default:
             ESP_LOGV(TAG, "Unimplemented RF OID received: 0x%02X", rx.get_oid());
         }
